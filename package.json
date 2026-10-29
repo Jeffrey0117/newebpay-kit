@@ -1,0 +1,12 @@
+{
+  "name": "newebpay-kit",
+  "version": "0.1.0",
+  "description": "藍新金流 NewebPay 零依賴 Node SDK:MPG 幕前支付 + 信用卡定期定額(建立/暫停/終止/改金額/查詢委託) + notify 解密驗章",
+  "main": "index.js",
+  "scripts": {
+    "example": "node example.js"
+  },
+  "keywords": [],
+  "author": "Jeffrey0117",
+  "license": "MIT"
+}
