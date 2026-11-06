@@ -1,12 +1,41 @@
 {
   "name": "newebpay-kit",
-  "version": "0.1.0",
-  "description": "藍新金流 NewebPay 零依賴 Node SDK:MPG 幕前支付 + 信用卡定期定額(建立/暫停/終止/改金額/查詢委託) + notify 解密驗章",
+  "version": "1.0.0",
+  "description": "藍新金流 NewebPay 零依賴 Node SDK:MPG 幕前支付 + 信用卡定期定額(建立/暫停/終止/改金額/查詢委託) + notify 解密驗章(正確處理藍新 32-byte padding)",
   "main": "index.js",
+  "types": "index.d.ts",
+  "files": [
+    "index.js",
+    "index.d.ts",
+    "example.js",
+    "SKILL.md"
+  ],
   "scripts": {
-    "example": "node example.js"
+    "test": "node --test",
+    "example": "node example.js",
+    "prepublishOnly": "node --test"
   },
-  "keywords": [],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Jeffrey0117/newebpay-kit.git"
+  },
+  "homepage": "https://github.com/Jeffrey0117/newebpay-kit#readme",
+  "bugs": "https://github.com/Jeffrey0117/newebpay-kit/issues",
+  "keywords": [
+    "newebpay",
+    "藍新",
+    "藍新金流",
+    "taiwan",
+    "payment",
+    "mpg",
+    "定期定額",
+    "recurring",
+    "credit-card",
+    "金流"
+  ],
+  "engines": {
+    "node": ">=18"
+  },
   "author": "Jeffrey0117",
   "license": "MIT"
 }
