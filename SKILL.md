@@ -40,6 +40,7 @@
 
 ## 地雷
 
+- **藍新 notify 的 AES padding 不是標準 PKCS7**：官方 `addpadding()` 以 32 為 blocksize，pad byte 可達 32（0x20）。驗 padding 強制 ≤16 會把一半的真實通知拒收（2026-11-06 quickky/coursebloom 線上實案，df84477 已修）。自己寫解密一律照官方範例 `setAutoPadding(false)` + 接受 pad 1~32。自測加密產生的 notify（Node 標準 PKCS7）驗不出這個 bug — 要用 32-pad 模擬真通知。
 - 測試站 ccore 要用 cwww 測試平台的測試商店金鑰，正式金鑰打 ccore 必敗 — 反之亦然。
 - `TimeStamp` 誤差 >120s 直接交易失敗。
 - PHP 範例的 query string 是 RFC1738（空格=+），kit 的 `buildQuery` 已對齊，別自己用 `URLSearchParams`（空格會變 %20… 其實也是 +，但 `!'()*` 編碼不同）混用。
