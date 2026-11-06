@@ -54,13 +54,19 @@ function createNewebpay({ merchantID, hashKey, hashIV, sandbox = false }) {
     return Buffer.concat([cipher.update(plain, 'utf8'), cipher.final()]).toString('hex')
   }
 
-  /** hex → AES 解密 → 去 PKCS7 padding → utf8 字串 */
+  /**
+   * hex → AES 解密 → 去 padding → utf8 字串
+   * 藍新官方 addpadding() 以 32 為 blocksize(pad 值 1~32),非標準 PKCS7(≤16)—
+   * 真實 notify 的 pad byte 落在 17~32 時,強制 ≤16 會把合法通知整批拒收。
+   */
   function decrypt(hex) {
     const decipher = crypto.createDecipheriv('aes-256-cbc', hashKey, hashIV)
     decipher.setAutoPadding(false)
     const buf = Buffer.concat([decipher.update(Buffer.from(hex, 'hex')), decipher.final()])
     const pad = buf[buf.length - 1]
-    if (!pad || pad > 16 || pad > buf.length) throw new Error('newebpay-kit: PKCS7 padding 異常(金鑰不對?)')
+    const padOk = pad >= 1 && pad <= 32 && pad <= buf.length &&
+      buf.slice(buf.length - pad).every((b) => b === pad)
+    if (!padOk) throw new Error('newebpay-kit: padding 異常(金鑰不對?)')
     return buf.slice(0, buf.length - pad).toString('utf8')
   }
 
