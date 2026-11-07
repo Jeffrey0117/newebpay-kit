@@ -8,10 +8,12 @@
 
 對應手冊版本：幕前支付 NDNF-1.2.6、信用卡定期定額 NDNP-1.0.8。
 
+> 介紹頁：https://jeffrey0117.github.io/newebpay-kit/
+
 ## Install
 
 ```bash
-npm i github:Jeffrey0117/newebpay-kit
+npm i newebpay-kit
 ```
 
 ## Quick start
