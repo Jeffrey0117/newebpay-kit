@@ -48,7 +48,7 @@ export interface PeriodParams {
   /** D=日 W=週 M=月 Y=年 */
   PeriodType: 'D' | 'W' | 'M' | 'Y'
   PeriodPoint: string | number
-  PeriodTimes: number
+  PeriodTimes: number | 'NE'
   PayerEmail: string
   NotifyURL?: string
   [key: string]: unknown

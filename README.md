@@ -92,6 +92,7 @@ await pay.postForm(pay.queryPeriod({ MerOrderNo, PeriodNo }))
 | `postForm(form)` | 幕後送出上面三支 admin API 並解密回應 |
 | `parsePeriodNotify(hex)` | 解密定期定額通知（建立完成/每期 NPA-N050/CAU） |
 | `encrypt / decrypt / tradeSha / checkCode / checkValue` | 底層原語 |
+| `buildQuery(obj)`（模組匯出） | 等價 PHP `http_build_query`（RFC1738，空格=+） |
 
 ## 地雷
 
@@ -101,15 +102,16 @@ await pay.postForm(pay.queryPeriod({ MerOrderNo, PeriodNo }))
 - 定期定額的扣款排程在藍新那端，商店端靠 NotifyURL 收每期結果 — **webhook 掉了不會重來**，務必冪等 + 以 `queryPeriod` 對帳。
 - `PeriodType=M` 遇當月無該日（例如 31 號）自動改月底扣。
 - 委託 `terminate` 之後不可逆，退訂想保留復活路徑用 `suspend`。
+- **藍新的 AES padding 是 32-byte blocksize**（官方 `addpadding()`，pad 值 1~32），不是標準 PKCS7 的 ≤16。用 Node 預設 `setAutoPadding(true)` 解密，pad 落在 17~32 的真實通知會整批被拒收 — 1.0.0 起 `decrypt` 已正確處理（有測試覆蓋）。自己寫解密的話務必 `setAutoPadding(false)` 手動去 pad。
 
 ## Tests
 
 ```bash
-node --test   # 12 tests, 官方手冊 known-answer 向量
+node --test   # 14 tests：官方手冊 known-answer 向量 + 32-byte padding 1~32 全覆蓋
 ```
 
 ## 生態系
 
-- 訂閱帳本/方案/webhook 派送 → [PayGate](https://github.com/Jeffrey0117/paygate)
+- 訂閱帳本/方案/webhook 派送 → [PayGate](https://jeffrey0117.github.io/paygate/)（正式環境用戶）
 - 變現 UX/paywall → [paywall-kit](https://github.com/Jeffrey0117/paywall-kit)
 - PayUni 版（站內 embed）→ [payuni-embed-kit](https://github.com/Jeffrey0117/payuni-embed-kit)

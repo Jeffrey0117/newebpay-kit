@@ -173,3 +173,41 @@ test('sandbox=false 走正式站', () => {
   const prod = createNewebpay({ merchantID: 'X', hashKey: 'k'.repeat(32), hashIV: 'i'.repeat(16) })
   assert.match(prod.mpg({ MerchantOrderNo: 'o', Amt: 1, ItemDesc: 'd', Email: 'a@b.c' }).action, /^https:\/\/core\.newebpay\.com/)
 })
+
+// ── 藍新官方 addpadding():blocksize=32,pad 值 1~32(非標準 PKCS7 的 ≤16) ──
+// Node 的 cipher 只會產生 ≤16 的 pad,這裡手動模擬藍新的 32-byte padding,
+// 確認 decrypt 能吃下真實 notify 會出現的 pad 17~32(1.0.0 修掉的 bug)。
+const nodeCrypto = require('node:crypto')
+function newebpayStyleEncrypt(plain, key, iv) {
+  const raw = Buffer.from(plain, 'utf8')
+  const pad = 32 - (raw.length % 32)
+  const padded = Buffer.concat([raw, Buffer.alloc(pad, pad)])
+  const c = nodeCrypto.createCipheriv('aes-256-cbc', key, iv)
+  c.setAutoPadding(false)
+  return { hex: Buffer.concat([c.update(padded), c.final()]).toString('hex'), pad }
+}
+
+test('decrypt 接受藍新 32-byte padding:pad 1~32 全部還原', () => {
+  const key = 'IaWudQJsuOT994cpHRWzv7Ge67yC1cE3'
+  const iv = 'C1dLm3nxZRVlmBSP'
+  const seen = new Set()
+  for (let len = 1; len <= 64; len++) {
+    const plain = 'Status=SUCCESS&x=' + 'a'.repeat(len)
+    const { hex, pad } = newebpayStyleEncrypt(plain, key, iv)
+    seen.add(pad)
+    assert.equal(ndnp.decrypt(hex), plain, `pad=${pad}`)
+  }
+  for (let p = 1; p <= 32; p++) assert.ok(seen.has(p), `pad ${p} 有被測到`)
+})
+
+test('decrypt 拒收 padding 不一致的密文(金鑰錯或被竄改)', () => {
+  const key = 'IaWudQJsuOT994cpHRWzv7Ge67yC1cE3'
+  const iv = 'C1dLm3nxZRVlmBSP'
+  const raw = Buffer.concat([Buffer.from('Status=SUCCESS'), Buffer.alloc(17, 20), Buffer.from([20])])
+  const c = nodeCrypto.createCipheriv('aes-256-cbc', key, iv)
+  c.setAutoPadding(false)
+  const hex = Buffer.concat([c.update(raw), c.final()]).toString('hex')
+  assert.throws(() => ndnp.decrypt(hex), /padding/)
+  const wrongKey = createNewebpay({ merchantID: 'X', hashKey: 'z'.repeat(32), hashIV: iv, sandbox: true })
+  assert.throws(() => wrongKey.decrypt(newebpayStyleEncrypt('Status=SUCCESS', key, iv).hex))
+})
