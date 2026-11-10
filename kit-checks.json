@@ -1,0 +1,47 @@
+{
+  "_schema": "kit-kit audit.js 的格式：{ id, rule, fix, pattern, files, severity }。pattern 與 files 都是 JS RegExp 字串（無 flags，所以大小寫要自己列舉），pattern 逐行比對，files 比對專案內的相對路徑。audit 本身已排除 *.md / test/ / docs/ / example.js / kit-checks.json，也不會把「本身就是獨立受稽核專案」的子目錄算進來。",
+  "_files_note": "除了 test/ 這類目錄，也排除根目錄的 test-*.js / *-test.js 腳本：專案常把一次性驗證腳本放在根目錄，而那些腳本會寫死官方手冊的範例金鑰、把 sandbox 設成 1 —— 那是在證明流程通，不是外洩（實測 paygate 的 test-newebpay-mandates.js 就因此誤報過，已核對過那把金鑰與 .env 的正式金鑰不同）。另外幾條把範圍限定在路徑看起來跟金流有關的檔案：aes-256-cbc、createHash 在別的地方是完全正常的寫法，全專案掃會變成噪音。",
+  "_pattern_note": "每條 pattern 都以 ^(?!\\s*(?:\\*|//|/\\*|#)) 開頭，跳過純註解行 —— 專案常會把「舊的壞寫法長這樣」寫在註解裡當說明，那不該被報成違規。",
+  "checks": [
+    {
+      "id": "newebpay-secret-hardcoded",
+      "severity": "critical",
+      "pattern": "^(?!\\s*(?:\\*|//|/\\*|#)).*(?:(?:hashKey|hashIV|hashIv|HashKey|HashIV|HASH_KEY|HASH_IV|MerchantID|MerchantId|merchantId|MERCHANT_ID)\\s*[:=]\\s*(?!process\\.env)['\"][A-Za-z0-9_-]{8,}['\"])",
+      "files": "^(?!.*(?:(?:^|/)(?:test|tests|e2e|scripts|__tests__|__mocks__|fixtures)/))(?!(?:.*/)?test-[^/]*$)(?!(?:.*/)?[^/]*-test\\.[jt]sx?$)(?!.*(?:__tests__|__mocks__|\\.test\\.|\\.spec\\.|\\.fixture\\.|node_modules|\\.next/|dist/|build/|coverage/)).*\\.(js|cjs|mjs|ts|tsx)$",
+      "rule": "藍新的 HashKey / HashIV / MerchantID 寫死在程式裡。這三個就是全部 —— 拿到就能自簽任意金額的付款與通知、也能解開真實通知內容。進了 git 就等於外洩（公開 repo 更不用說），而且金鑰輪替要重新申請。",
+      "fix": "一律 process.env.NEWEBPAY_HASH_KEY / NEWEBPAY_HASH_IV / NEWEBPAY_MERCHANT_ID，只進 .env。kit 的 createNewebpay 就是設計成注入的，不要 fallback 到任何預設值。"
+    },
+    {
+      "id": "newebpay-hand-rolled-decrypt",
+      "severity": "high",
+      "pattern": "^(?!\\s*(?:\\*|//|/\\*|#)).*(?:createDecipheriv\\s*\\(\\s*['\"]aes-256-cbc)",
+      "files": "^(?=.*(?:newebpay|NewebPay|NEWEBPAY|payment|Payment|checkout|Checkout|subscribe|Subscribe|subscription|notify|Notify|billing|Billing|mpg|period))(?!.*(?:(?:^|/)(?:test|tests|e2e|scripts|__tests__|__mocks__|fixtures)/))(?!(?:.*/)?test-[^/]*$)(?!(?:.*/)?[^/]*-test\\.[jt]sx?$)(?!.*(?:__tests__|__mocks__|\\.test\\.|\\.spec\\.|\\.fixture\\.|node_modules|\\.next/|dist/|build/|coverage/)).*\\.(js|cjs|mjs|ts|tsx)$",
+      "rule": "自己解密藍新的通知。藍新官方 addpadding() 以 32 為 blocksize（pad 值可達 0x20），不是標準 PKCS7；驗 padding 時強制 ≤16 會把一半的真實通知當成金鑰錯誤拒收 —— 使用者付了錢卻沒開通（2026-11-06 quickky / coursebloom 線上實案）。更糟的是自測用 Node 標準 PKCS7 加密產生的通知驗不出這個 bug，測試會是綠的。",
+      "fix": "用 kit 的 parseMpgNotify / parsePeriodNotify。真要自己寫就照官方範例 setAutoPadding(false) 並接受 pad 1~32，而且測試要用 32-pad 模擬真通知。"
+    },
+    {
+      "id": "newebpay-timestamp-milliseconds",
+      "severity": "high",
+      "pattern": "^(?!\\s*(?:\\*|//|/\\*|#)).*(?:TimeStamp\\s*[:=]\\s*(?:String\\(\\s*)?Date\\.now\\(\\))",
+      "files": "^(?!.*(?:(?:^|/)(?:test|tests|e2e|scripts|__tests__|__mocks__|fixtures)/))(?!(?:.*/)?test-[^/]*$)(?!(?:.*/)?[^/]*-test\\.[jt]sx?$)(?!.*(?:__tests__|__mocks__|\\.test\\.|\\.spec\\.|\\.fixture\\.|node_modules|\\.next/|dist/|build/|coverage/)).*\\.(js|cjs|mjs|ts|tsx)$",
+      "rule": "藍新的 TimeStamp 是 Unix 秒，Date.now() 是毫秒。差 1000 倍遠超過它容許的 120 秒誤差，交易會直接失敗，而錯誤訊息不會告訴你是時間的問題。",
+      "fix": "Math.floor(Date.now() / 1000)，或直接用 kit 的 mpg() / period()，它已經處理好了。"
+    },
+    {
+      "id": "newebpay-handrolled-checkvalue",
+      "severity": "high",
+      "pattern": "^(?!\\s*(?:\\*|//|/\\*|#)).*(?:createHash\\s*\\(\\s*['\"]sha256['\"])",
+      "files": "^(?=.*(?:newebpay|NewebPay|NEWEBPAY|mpg|period|checkValue|CheckValue|checkCode|tradeSha|TradeSha))(?!.*(?:(?:^|/)(?:test|tests|e2e|scripts|__tests__|__mocks__|fixtures)/))(?!(?:.*/)?test-[^/]*$)(?!(?:.*/)?[^/]*-test\\.[jt]sx?$)(?!.*(?:__tests__|__mocks__|\\.test\\.|\\.spec\\.|\\.fixture\\.|node_modules|\\.next/|dist/|build/|coverage/)).*\\.(js|cjs|mjs|ts|tsx)$",
+      "rule": "自己算藍新的檢查碼。那串要照 PHP 範例的 RFC1738 編碼串接（空格=+、! ' ( ) * 不編碼），用 URLSearchParams / querystring 串出來的字元編碼不同，檢查碼就對不上 —— 而且只有在訂單號或金額剛好含到那些字元時才壞，極難重現。",
+      "fix": "用 kit 的 checkValue() / buildQuery()。（注意：把已經算好的 CheckValue 用 URLSearchParams 當 POST body 送出去是正常的，傳輸編碼不影響檢查碼，本條不報那種寫法。）"
+    },
+    {
+      "id": "newebpay-sandbox-hardcoded",
+      "severity": "warn",
+      "pattern": "^(?!\\s*(?:\\*|//|/\\*|#)).*(?:(?:sandbox|Sandbox|SANDBOX|isTest|testMode)\\s*[:=]\\s*(?:true|1|['\"]1['\"]))",
+      "files": "^(?=.*(?:newebpay|NewebPay|NEWEBPAY|payment|Payment|checkout|Checkout|subscribe|Subscribe|subscription|billing|Billing))(?!.*(?:(?:^|/)(?:test|tests|e2e|scripts|__tests__|__mocks__|fixtures)/))(?!(?:.*/)?test-[^/]*$)(?!(?:.*/)?[^/]*-test\\.[jt]sx?$)(?!.*(?:__tests__|__mocks__|\\.test\\.|\\.spec\\.|\\.fixture\\.|node_modules|\\.next/|dist/|build/|coverage/)).*\\.(js|cjs|mjs|ts|tsx)$",
+      "rule": "sandbox 寫死在程式裡。測試站（ccore 測試平台）與正式站的金鑰完全不通用，寫死哪一邊，另一邊就全部失敗 —— 上線後所有付款直接死，或更糟：以為收到錢，其實打的是測試站。",
+      "fix": "從 env 讀：sandbox: process.env.NEWEBPAY_SANDBOX === '1'。"
+    }
+  ]
+}
