@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="logo.svg" width="96" height="96" alt="newebpay-kit logo">
+</p>
+
 # newebpay-kit 🏦
 
 藍新金流 NewebPay 零依賴 Node SDK — MPG 幕前支付（單次付款）＋信用卡定期定額（訂閱）。
