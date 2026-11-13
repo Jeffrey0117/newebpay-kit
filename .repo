@@ -6,5 +6,43 @@
   "work": {
     "guide": "README.md",
     "test": "npm test"
-  }
+  },
+  "offers": [
+    {
+      "id": "create_newebpay",
+      "what": "藍新金流的入口：傳入 merchantID / hashKey / hashIV / sandbox，回傳 mpg、period、notify 解密與委託管理等方法。所有方法只產生表單欄位或做純函式加解密，不偷打網路；測試站要用測試平台另開的商店金鑰，拿正式金鑰打測試站必失敗。",
+      "how": "import",
+      "import": "const { createNewebpay } = require('newebpay-kit')"
+    },
+    {
+      "id": "mpg_payment",
+      "what": "單次付款：pay.mpg(params) 產生 MPG 表單 { action, method, fields }，前端塞進 form 自動送出導向藍新付款頁；pay.parseMpgNotify(body) 在 notify 端驗章加解密，驗不過直接 throw。開通一律以 NotifyURL 為準，ReturnURL 可能不來。",
+      "how": "import",
+      "import": "const { createNewebpay } = require('newebpay-kit')"
+    },
+    {
+      "id": "period_subscription",
+      "what": "訂閱：pay.period(params) 產生信用卡定期定額委託表單，之後藍新按排程自動扣款；pay.parsePeriodNotify(hex) 解密建立完成與每期授權通知。webhook 掉了不會重來，務必冪等並用 queryPeriod 對帳。",
+      "how": "import",
+      "import": "const { createNewebpay } = require('newebpay-kit')"
+    },
+    {
+      "id": "period_admin",
+      "what": "管理既有委託：pay.alterPeriodStatus（suspend / restart / terminate）、pay.alterPeriodAmt（改金額、週期、期數）、pay.queryPeriod（查委託單）各產生一張表單，再用 pay.postForm(form) 幕後送出並解密回應。terminate 不可逆，退訂想保留復活路徑用 suspend。",
+      "how": "import",
+      "import": "const { createNewebpay } = require('newebpay-kit')"
+    },
+    {
+      "id": "crypto_primitives",
+      "what": "底層原語 pay.encrypt / decrypt / tradeSha / checkCode / checkValue，自己組流程時用。decrypt 已正確處理藍新的 32-byte padding；自己寫解密要 setAutoPadding(false) 手動去 pad，否則 pad 落在 17~32 的真實通知會被拒收。",
+      "how": "import",
+      "import": "const { createNewebpay } = require('newebpay-kit')"
+    },
+    {
+      "id": "build_query",
+      "what": "等價 PHP http_build_query 的 query string 組法（RFC1738，空格編成 +），藍新範例用這個格式。自己送表單或算驗章字串時用，別跟 URLSearchParams 混用。",
+      "how": "import",
+      "import": "const { buildQuery } = require('newebpay-kit')"
+    }
+  ]
 }
